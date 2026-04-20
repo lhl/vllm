@@ -194,7 +194,9 @@ class HFConfigParser(ConfigParserBase):
                 dummy_model_type = hf_overrides(dummy_config).model_type
                 model_type = dummy_model_type.removeprefix("dummy_")
 
-        if model_type in _SPECULATIVE_DECODING_CONFIGS:
+        if config_dict.get("architectures") == ["DFlashDraftModel"]:
+            config = PretrainedConfig(**config_dict)
+        elif model_type in _SPECULATIVE_DECODING_CONFIGS:
             config_class = _CONFIG_REGISTRY[model_type]
             config = config_class.from_pretrained(
                 model,

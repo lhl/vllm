@@ -567,6 +567,9 @@ _SPECULATIVE_DECODING_MODELS = {
     "EagleLlama4ForCausalLM": ("llama4_eagle", "EagleLlama4ForCausalLM"),
     "EagleMiniCPMForCausalLM": ("minicpm_eagle", "EagleMiniCPMForCausalLM"),
     "DFlashDraftModel": ("qwen3_dflash", "DFlashQwen3ForCausalLM"),
+    "DFlashGemma4ForCausalLM": ("gemma4_dflash", "DFlashGemma4ForCausalLM"),
+    "DFlashPhi4ForCausalLM": ("phi4_dflash", "DFlashPhi4ForCausalLM"),
+    "DFlashPhi4MMForCausalLM": ("phi4mm_dflash", "DFlashPhi4MMForCausalLM"),
     "Eagle3LlamaForCausalLM": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
     "Eagle3MiniMaxM2ForCausalLM": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
     "LlamaForCausalLMEagle3": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
@@ -597,6 +600,13 @@ _SPECULATIVE_DECODING_MODELS = {
     # Temporarily disabled.
     # # TODO(woosuk): Re-enable this once the MLP Speculator is supported in V1.
     # "MLPSpeculatorPreTrainedModel": ("mlp_speculator", "MLPSpeculator"),
+}
+
+_DFLASH_MODEL_TYPE_TO_ARCH = {
+    "gemma4": "DFlashGemma4ForCausalLM",
+    "phi3": "DFlashPhi4ForCausalLM",
+    "phi4": "DFlashPhi4ForCausalLM",
+    "phi4mm": "DFlashPhi4MMForCausalLM",
 }
 
 _TRANSFORMERS_SUPPORTED_MODELS = {
@@ -1076,6 +1086,17 @@ class _ModelRegistry:
         architecture: str,
         model_config: ModelConfig,
     ) -> str:
+        if architecture == "DFlashDraftModel":
+            hf_config = model_config.hf_config
+            model_types = [
+                getattr(hf_config, "model_type", None),
+                getattr(getattr(hf_config, "model", None), "model_type", None),
+                getattr(getattr(hf_config, "text_config", None), "model_type", None),
+            ]
+            for model_type in model_types:
+                if model_type in _DFLASH_MODEL_TYPE_TO_ARCH:
+                    return _DFLASH_MODEL_TYPE_TO_ARCH[model_type]
+
         if architecture in self.models:
             return architecture
 

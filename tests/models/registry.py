@@ -1395,6 +1395,22 @@ _SPECULATIVE_DECODING_EXAMPLE_MODELS = {
         max_model_len=8192,  # Reduce max len to ensure test runs in low-VRAM CI env
         max_num_seqs=32,
     ),
+    "DFlashGemma4ForCausalLM": _HfExamplesInfo(
+        "shisa-ai/chotto-e4b-20260408",
+        speculative_model="shisa-ai/chotto-e4b-20260408-DFlash",
+        is_available_online=False,
+    ),
+    "DFlashPhi4ForCausalLM": _HfExamplesInfo(
+        "microsoft/phi-4",
+        speculative_model="microsoft/phi-4-DFlash",
+        is_available_online=False,
+    ),
+    "DFlashPhi4MMForCausalLM": _HfExamplesInfo(
+        "microsoft/Phi-4-multimodal-instruct",
+        speculative_model="microsoft/Phi-4-multimodal-instruct-DFlash",
+        is_available_online=False,
+        trust_remote_code=True,
+    ),
     # [Eagle]
     "EagleDeepSeekMTPModel": _HfExamplesInfo(
         "eagle618/deepseek-v3-random",

@@ -585,6 +585,10 @@ class SpeculativeConfig:
                 n_predict = getattr(
                     self.draft_model_config.hf_config, "n_predict", None
                 )
+                if n_predict is None and self.method == "dflash":
+                    n_predict = getattr(
+                        self.draft_model_config.hf_config, "block_size", None
+                    )
                 if n_predict is not None:
                     if self.num_speculative_tokens is None:
                         # Default to max value defined in draft model config.
@@ -830,6 +834,9 @@ class SpeculativeConfig:
             "kimi_k25",
             "minimax_m2",
             "gemma4",
+            "phi3",
+            "phi4",
+            "phi4mm",
         ]
         if (
             self.method in ("eagle3", "extract_hidden_states", "dflash")
