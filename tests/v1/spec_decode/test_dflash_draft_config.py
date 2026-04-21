@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from vllm.model_executor.models.dflash_draft import _get_dflash_rope_parameters
 from vllm.model_executor.models.registry import ModelRegistry
 from vllm.transformers_utils.config import get_config
 from vllm.transformers_utils.configs.eagle import EAGLEConfig
@@ -15,6 +16,7 @@ from vllm.transformers_utils.configs.eagle import EAGLEConfig
     ("model_type", "expected_cls"),
     [
         ("gemma4", "DFlashGemma4ForCausalLM"),
+        ("llama", "DFlashLlamaForCausalLM"),
         ("phi3", "DFlashPhi4ForCausalLM"),
         ("phi4mm", "DFlashPhi4MMForCausalLM"),
     ],
@@ -62,3 +64,18 @@ def test_shisa_dflash_draft_config_routes_by_model_type(
 
     cls, _ = ModelRegistry.resolve_model_cls(["DFlashDraftModel"], model_config)
     assert cls.__name__ == expected_cls
+
+
+def test_shisa_dflash_uses_llama_rope_parameters():
+    config = SimpleNamespace(
+        rope_parameters={
+            "factor": 32.0,
+            "high_freq_factor": 4.0,
+            "low_freq_factor": 1.0,
+            "original_max_position_embeddings": 8192,
+            "rope_type": "llama3",
+            "rope_theta": 500000.0,
+        }
+    )
+
+    assert _get_dflash_rope_parameters(config) == config.rope_parameters

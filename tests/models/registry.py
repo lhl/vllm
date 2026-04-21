@@ -1400,6 +1400,11 @@ _SPECULATIVE_DECODING_EXAMPLE_MODELS = {
         speculative_model="shisa-ai/chotto-e4b-20260408-DFlash",
         is_available_online=False,
     ),
+    "DFlashLlamaForCausalLM": _HfExamplesInfo(
+        "meta-llama/Llama-3.2-1B-Instruct",
+        speculative_model="meta-llama/Llama-3.2-1B-Instruct-DFlash",
+        is_available_online=False,
+    ),
     "DFlashPhi4ForCausalLM": _HfExamplesInfo(
         "microsoft/phi-4",
         speculative_model="microsoft/phi-4-DFlash",

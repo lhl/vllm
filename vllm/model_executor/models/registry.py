@@ -568,6 +568,7 @@ _SPECULATIVE_DECODING_MODELS = {
     "EagleMiniCPMForCausalLM": ("minicpm_eagle", "EagleMiniCPMForCausalLM"),
     "DFlashDraftModel": ("qwen3_dflash", "DFlashQwen3ForCausalLM"),
     "DFlashGemma4ForCausalLM": ("gemma4_dflash", "DFlashGemma4ForCausalLM"),
+    "DFlashLlamaForCausalLM": ("llama_dflash", "DFlashLlamaForCausalLM"),
     "DFlashPhi4ForCausalLM": ("phi4_dflash", "DFlashPhi4ForCausalLM"),
     "DFlashPhi4MMForCausalLM": ("phi4mm_dflash", "DFlashPhi4MMForCausalLM"),
     "Eagle3LlamaForCausalLM": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
@@ -604,6 +605,7 @@ _SPECULATIVE_DECODING_MODELS = {
 
 _DFLASH_MODEL_TYPE_TO_ARCH = {
     "gemma4": "DFlashGemma4ForCausalLM",
+    "llama": "DFlashLlamaForCausalLM",
     "phi3": "DFlashPhi4ForCausalLM",
     "phi4": "DFlashPhi4ForCausalLM",
     "phi4mm": "DFlashPhi4MMForCausalLM",

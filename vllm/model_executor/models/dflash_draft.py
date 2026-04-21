@@ -45,6 +45,14 @@ logger = init_logger(__name__)
 
 
 def _get_dflash_rope_parameters(config) -> dict:
+    rope_parameters = getattr(config, "rope_parameters", None)
+    if rope_parameters is not None:
+        return dict(rope_parameters)
+
+    rope_scaling = getattr(config, "rope_scaling", None)
+    if rope_scaling is not None:
+        return dict(rope_scaling)
+
     rope_theta = getattr(config, "rope_theta", 1000000.0)
     return {"rope_type": "default", "rope_theta": rope_theta}
 
