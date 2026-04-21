@@ -194,8 +194,27 @@ class HFConfigParser(ConfigParserBase):
                 dummy_model_type = hf_overrides(dummy_config).model_type
                 model_type = dummy_model_type.removeprefix("dummy_")
 
-        if config_dict.get("architectures") == ["DFlashDraftModel"]:
+        if (
+            config_dict.get("architectures") == ["DFlashDraftModel"]
+            and config_dict.get("speculators_config") is None
+        ):
             config = PretrainedConfig(**config_dict)
+        elif (
+            model_type == "speculators"
+            and config_dict.get("speculators_model_type") == "dflash"
+        ):
+            from vllm.transformers_utils.configs.speculators.base import (
+                SpeculatorsConfig,
+            )
+
+            # DFlash speculators configs need to be normalized into a plain
+            # draft-model config so later wrapping via EAGLEConfig preserves
+            # the underlying target family (llama/gemma4/phi*), which is used
+            # by the registry to route DFlashDraftModel to the correct class.
+            normalized_config = (
+                SpeculatorsConfig.extract_transformers_pre_trained_config(config_dict)
+            )
+            config = PretrainedConfig(**normalized_config)
         elif model_type in _SPECULATIVE_DECODING_CONFIGS:
             config_class = _CONFIG_REGISTRY[model_type]
             config = config_class.from_pretrained(
