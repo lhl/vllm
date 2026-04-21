@@ -135,7 +135,7 @@ class DFlashDraftAttention(nn.Module):
         positions: torch.Tensor,
         hidden_states: torch.Tensor,
     ) -> torch.Tensor:
-        qkv = F.linear(hidden_states, self.qkv_proj.weight, self.qkv_proj.bias)
+        qkv, _ = self.qkv_proj(hidden_states)
         q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
         q, k = self.rotary_emb(positions, q, k)
 
@@ -314,7 +314,7 @@ class DFlashDraftModel(nn.Module):
         self,
         context_states: torch.Tensor,
         context_positions: torch.Tensor,
-        context_slot_mapping: torch.Tensor | None = None,
+        context_slot_mapping: torch.Tensor | dict[str, torch.Tensor] | None = None,
     ) -> None:
         if not hasattr(self, "_num_attn_layers"):
             logger.warning_once(
@@ -365,13 +365,20 @@ class DFlashDraftModel(nn.Module):
         all_k_final = all_k_flat.view(L, num_ctx, nkv, hd)
         for i in range(L):
             attn = self._attn_layers[i]
+            slot_mapping = context_slot_mapping
+            if isinstance(context_slot_mapping, dict):
+                slot_mapping = context_slot_mapping.get(attn.layer_name)
+                if slot_mapping is None:
+                    raise KeyError(
+                        f"Missing DFlash context slot mapping for {attn.layer_name}"
+                    )
             kv_cache = attn.kv_cache
             attn.impl.do_kv_cache_update(
                 attn,
                 all_k_final[i],
                 all_v[i],
                 kv_cache,
-                context_slot_mapping,
+                slot_mapping,
             )
 
     def forward(
@@ -516,7 +523,7 @@ class DFlashDraftForCausalLM(nn.Module):
         self,
         context_states: torch.Tensor,
         context_positions: torch.Tensor,
-        context_slot_mapping: torch.Tensor | None = None,
+        context_slot_mapping: torch.Tensor | dict[str, torch.Tensor] | None = None,
     ) -> None:
         self.model.precompute_and_store_context_kv(
             context_states, context_positions, context_slot_mapping

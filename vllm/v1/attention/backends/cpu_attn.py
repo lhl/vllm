@@ -360,6 +360,29 @@ class CPUAttentionBackendImpl(AttentionImpl):
 
         return output
 
+    def do_kv_cache_update(
+        self,
+        layer: AttentionLayer,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        kv_cache: torch.Tensor,
+        slot_mapping: torch.Tensor,
+    ) -> None:
+        if self.attn_type in (AttentionType.ENCODER_ONLY, AttentionType.ENCODER):
+            return
+
+        key_cache, value_cache = kv_cache.unbind(0)
+        block_size = value_cache.shape[2]
+        isa = _get_attn_isa(key.dtype, block_size, self.head_size)
+        ops.cpu_attn_reshape_and_cache(
+            key,
+            value,
+            key_cache,
+            value_cache,
+            slot_mapping,
+            isa,
+        )
+
     def _run_sdpa_forward(
         self,
         query: torch.Tensor,

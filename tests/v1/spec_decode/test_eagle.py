@@ -1288,3 +1288,151 @@ def test_set_inputs_first_pass_dflash():
 
     # Verify hidden states (stored by reference, not copied)
     assert proposer._dflash_hidden_states is target_hidden_states
+
+
+def test_set_inputs_first_pass_dflash_multi_kv_groups():
+    device = torch.device(current_platform.device_type)
+
+    num_speculative_tokens = 2
+    proposer = _create_proposer("dflash", num_speculative_tokens)
+    proposer.kv_cache_gid = 0
+    proposer._draft_kv_cache_group_ids = (0, 1)
+    proposer._draft_layer_names_by_gid = {
+        0: ("draft.layer.0",),
+        1: ("draft.layer.1",),
+    }
+    proposer._draft_block_sizes_by_gid = {
+        0: 16,
+        1: 8,
+    }
+
+    batch_spec = BatchSpec(
+        seq_lens=[6, 5],
+        query_lens=[2, 2],
+    )
+    common_attn_metadata = create_common_attn_metadata(
+        batch_spec,
+        block_size=16,
+        device=device,
+        arange_block_indices=False,
+    )
+    block_table_0 = torch.tensor(
+        [[1, 2, 3, 4], [5, 6, 7, 8]],
+        dtype=torch.int32,
+        device=device,
+    )
+    block_table_1 = torch.tensor(
+        [[11, 12, 13, 14], [21, 22, 23, 24]],
+        dtype=torch.int32,
+        device=device,
+    )
+    common_attn_metadata.block_table_tensor = block_table_0
+
+    proposer.runner = mock.Mock()
+    proposer.runner.input_batch.block_table = [
+        mock.Mock(),
+        mock.Mock(),
+    ]
+    proposer.runner.input_batch.block_table[
+        1
+    ].get_device_tensor.return_value = block_table_1
+
+    target_token_ids = torch.tensor([10, 11, 20, 21], dtype=torch.int32, device=device)
+    target_positions = torch.tensor([4, 5, 3, 4], dtype=torch.int64, device=device)
+    target_hidden_states = torch.randn(
+        4, proposer.hidden_size, dtype=proposer.dtype, device=device
+    )
+    next_token_ids = torch.tensor([100, 200], dtype=torch.int32, device=device)
+
+    num_tokens, token_indices_to_sample, output_cad = proposer.set_inputs_first_pass(
+        target_token_ids=target_token_ids,
+        next_token_ids=next_token_ids,
+        target_positions=target_positions,
+        target_hidden_states=target_hidden_states,
+        token_indices_to_sample=None,
+        cad=common_attn_metadata,
+        num_rejected_tokens_gpu=None,
+    )
+
+    assert num_tokens == 6
+    assert torch.equal(
+        proposer.positions[:num_tokens],
+        torch.tensor([6, 7, 8, 5, 6, 7], dtype=torch.int64, device=device),
+    )
+    assert torch.equal(
+        token_indices_to_sample,
+        torch.tensor([1, 2, 4, 5], dtype=torch.int32, device=device),
+    )
+
+    assert torch.equal(
+        proposer._dflash_context_slot_mapping_buffers[0][:4],
+        torch.tensor([20, 21, 83, 84], dtype=torch.int64, device=device),
+    )
+    assert torch.equal(
+        proposer._dflash_query_slot_mapping_buffers[0][:6],
+        torch.tensor([22, 23, 24, 85, 86, 87], dtype=torch.int64, device=device),
+    )
+    assert torch.equal(
+        proposer._dflash_context_slot_mapping_buffers[1][:4],
+        torch.tensor([92, 93, 171, 172], dtype=torch.int64, device=device),
+    )
+    assert torch.equal(
+        proposer._dflash_query_slot_mapping_buffers[1][:6],
+        torch.tensor([94, 95, 96, 173, 174, 175], dtype=torch.int64, device=device),
+    )
+
+    assert output_cad.block_table_tensor is block_table_0
+    assert proposer._dflash_group_common_attn_metadata_by_gid[1].block_table_tensor is (
+        block_table_1
+    )
+    assert output_cad.causal is False
+    assert proposer._dflash_group_common_attn_metadata_by_gid[1].causal is False
+
+
+def test_build_per_group_and_layer_attn_metadata_dflash_uses_group_specific_cads():
+    proposer = _create_proposer("dflash", 1)
+
+    attn_metadata_0 = mock.Mock(causal=False)
+    attn_metadata_1 = mock.Mock(causal=False)
+    builder_0 = mock.Mock()
+    builder_0.build_for_drafting.return_value = attn_metadata_0
+    builder_1 = mock.Mock()
+    builder_1.build_for_drafting.return_value = attn_metadata_1
+
+    group_0 = mock.Mock()
+    group_0.kv_cache_group_id = 0
+    group_0.layer_names = ["draft.layer.0"]
+    group_0.get_metadata_builder.return_value = builder_0
+
+    group_1 = mock.Mock()
+    group_1.kv_cache_group_id = 1
+    group_1.layer_names = ["draft.layer.1"]
+    group_1.get_metadata_builder.return_value = builder_1
+
+    proposer.draft_attn_groups = [group_0, group_1]
+    cad_0 = object()
+    cad_1 = object()
+    fallback_cad = object()
+    proposer._dflash_group_common_attn_metadata_by_gid = {
+        0: cad_0,
+        1: cad_1,
+    }
+
+    per_group, per_layer = proposer.build_per_group_and_layer_attn_metadata(
+        fallback_cad,
+        draft_index=3,
+    )
+
+    builder_0.build_for_drafting.assert_called_once_with(
+        common_attn_metadata=cad_0,
+        draft_index=3,
+    )
+    builder_1.build_for_drafting.assert_called_once_with(
+        common_attn_metadata=cad_1,
+        draft_index=3,
+    )
+    assert per_group == [attn_metadata_0, attn_metadata_1]
+    assert per_layer == {
+        "draft.layer.0": attn_metadata_0,
+        "draft.layer.1": attn_metadata_1,
+    }

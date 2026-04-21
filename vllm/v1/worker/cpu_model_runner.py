@@ -10,6 +10,7 @@ import vllm.utils.cpu_triton_utils as cpu_tl
 from vllm.config import VllmConfig
 from vllm.logger import init_logger
 from vllm.model_executor.model_loader import get_model
+from vllm.model_executor.models.interfaces import supports_eagle3
 from vllm.tracing import instrument
 from vllm.v1.core.sched.output import SchedulerOutput
 from vllm.v1.kv_cache_interface import KVCacheConfig
@@ -107,6 +108,24 @@ class CPUModelRunner(GPUModelRunner):
         if hasattr(self, "drafter"):
             logger.info_once("Loading drafter model...")
             self.drafter.load_model(self.model)
+
+        if self.use_aux_hidden_state_outputs:
+            if not supports_eagle3(self.get_model()):
+                raise RuntimeError(
+                    "Model does not support EAGLE3 interface but "
+                    "aux_hidden_state_outputs was requested"
+                )
+
+            aux_layers = self._get_eagle3_aux_layers_from_config()
+            if aux_layers:
+                logger.info(
+                    "Using auxiliary layers from speculative config: %s",
+                    aux_layers,
+                )
+            else:
+                aux_layers = self.model.get_eagle3_default_aux_hidden_state_layers()
+
+            self.model.set_aux_hidden_state_layers(aux_layers)
 
     def get_model(self) -> nn.Module:
         return self.model
